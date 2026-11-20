@@ -1,3 +1,4 @@
+
 -- =====================================================================
 -- PARTE A: PRODUCTOS (staging_products)  - FATIMA MICHEL
 -- =====================================================================
@@ -43,6 +44,13 @@ FROM staging_products;
 SELECT COUNT(*) AS oferta_mayor_que_precio
 FROM staging_products
 WHERE sale_price_usd::NUMERIC > price_usd::NUMERIC;
+
+-- B5b. Detalle de los author_id no numericos
+SELECT author_id, COUNT(*) AS reviews
+FROM staging_reviews
+WHERE author_id !~ '^\d+$'
+GROUP BY author_id
+ORDER BY reviews DESC;
 
 -- A6. Valores de los flags (deberian ser solo 0 y 1)
 SELECT 'limited_edition' AS flag, limited_edition AS valor, COUNT(*) FROM staging_products GROUP BY limited_edition
