@@ -1,16 +1,16 @@
 -- =====================================================================
 -- load_staging.sql  -  Project B: Sephora database
--- Crea las tablas staging (todo TEXT, sin restricciones) y carga en ellas
--- los CSV en bruto para hacer el profiling con SQL.
+-- Creates the staging tables (all TEXT, no constraints) and loads the raw
+-- CSV files into them, to profile the data with SQL.
 --
--- ANTES de ejecutar, en la Terminal (dentro de Sephora_database):
+-- BEFORE running it, in the Terminal (inside Sephora_database):
 --     cp data/*.csv /tmp/
--- (PostgreSQL no tiene permiso para leer el Escritorio; /tmp si)
+-- (PostgreSQL is not allowed to read the Desktop; it can read /tmp)
 --
--- Ejecutar en pgAdmin conectado a la base de datos "Sephora".
+-- Run in pgAdmin, connected to the "Sephora" database.
 -- =====================================================================
 
--- 1. Crear las tablas staging (se borran si ya existian)
+-- 1. Create the staging tables (dropped first if they already exist)
 DROP TABLE IF EXISTS staging_products;
 DROP TABLE IF EXISTS staging_reviews;
 
@@ -26,7 +26,7 @@ CREATE TABLE staging_products (
 );
 
 CREATE TABLE staging_reviews (
-    row_index TEXT,            -- primera columna sin nombre del CSV (indice de pandas)
+    row_index TEXT,            -- first unnamed column of the CSV (pandas index)
     author_id TEXT, rating TEXT, is_recommended TEXT, helpfulness TEXT,
     total_feedback_count TEXT, total_neg_feedback_count TEXT,
     total_pos_feedback_count TEXT, submission_time TEXT,
@@ -35,7 +35,7 @@ CREATE TABLE staging_reviews (
     product_id TEXT, product_name TEXT, brand_name TEXT, price_usd TEXT
 );
 
--- 2. Cargar los CSV
+-- 2. Load the CSV files
 COPY staging_products FROM '/tmp/product_info.csv'     WITH (FORMAT csv, HEADER true, ENCODING 'UTF8');
 
 COPY staging_reviews  FROM '/tmp/reviews_0-250.csv'    WITH (FORMAT csv, HEADER true, ENCODING 'UTF8');
@@ -44,6 +44,6 @@ COPY staging_reviews  FROM '/tmp/reviews_500-750.csv'  WITH (FORMAT csv, HEADER 
 COPY staging_reviews  FROM '/tmp/reviews_750-1250.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8');
 COPY staging_reviews  FROM '/tmp/reviews_1250-end.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8');
 
--- 3. Comprobar (esperado: 8494 productos, 1094411 reviews)
+-- 3. Check (expected: 8494 products, 1094411 reviews)
 SELECT (SELECT COUNT(*) FROM staging_products) AS productos,
        (SELECT COUNT(*) FROM staging_reviews)  AS reviews;

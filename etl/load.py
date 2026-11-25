@@ -1,19 +1,19 @@
 """
 load.py - Project B: Sephora database  (ETL)
 
-Lee los CSV en bruto de data/, limpia sus FORMATOS y los inserta en las
-7 tablas ya creadas por sql/schema.sql. No crea ni modifica tablas, y no
-analiza datos: todo el analisis se hace despues en SQL.
+Reads the raw CSV files in data/, cleans their FORMATS and inserts them into
+the 7 tables already created by sql/schema.sql. It does not create or change
+tables, and it does not analyse data: all the analysis is done later in SQL.
 
-- Toda la carga va en UNA transaccion: si algo falla -> ROLLBACK y no queda nada.
-- Los valores que faltan se quedan como NULL (nunca se inventan).
-- Cada regla de limpieza cuenta las filas afectadas y se guarda en
-  etl/cleaning_log.md para el informe.
+- The whole load runs in ONE transaction: if anything fails -> ROLLBACK, nothing is left.
+- Missing values stay NULL (they are never invented).
+- Each cleaning rule counts the rows it affects; the counts are saved in
+  etl/cleaning_log.md for the report.
 
-Uso (desde la carpeta Sephora_database):
+Usage (from the Sephora_database folder):
     pip3 install psycopg2-binary
-    python3 etl/load.py                  # carga normal
-    python3 etl/load.py --demo-rollback  # demuestra el rollback (no carga nada)
+    python3 etl/load.py                  # normal load
+    python3 etl/load.py --demo-rollback  # shows the rollback (loads nothing)
 """
 
 import argparse
@@ -45,18 +45,18 @@ REVIEW_FILES = [
 ]
 
 BATCH = 10_000
-csv.field_size_limit(sys.maxsize)          # algunas reseñas son muy largas
+csv.field_size_limit(sys.maxsize)          # some reviews are very long
 
-# Contador de reglas de limpieza: regla -> filas afectadas
+# Counter of cleaning rules: rule -> rows affected
 log = Counter()
 
 
 # ---------------------------------------------------------------------
-# Funciones de conversion de formato (texto del CSV -> tipo de PostgreSQL)
-# Si la celda esta vacia devuelven None (= NULL). Nunca inventan valores.
+# Format conversion functions (CSV text -> PostgreSQL type)
+# An empty cell returns None (= NULL). They never invent values.
 # ---------------------------------------------------------------------
 def clean(value):
-    """Texto vacio o solo espacios -> None."""
+    """Empty text or only spaces -> None."""
     if value is None:
         return None
     value = value.strip()
@@ -64,7 +64,7 @@ def clean(value):
 
 
 def to_int(value, rule=None):
-    """'11' o '11.0' (pandas escribe enteros como float) -> 11."""
+    """'11' o '11.0' (pandas writes integers as floats) -> 11."""
     value = clean(value)
     if value is None:
         return None
@@ -82,11 +82,11 @@ def to_decimal(value):
     try:
         return Decimal(value)
     except InvalidOperation:
-        raise ValueError(f"Numero no valido: {value!r}")
+        raise ValueError(f"Invalid number: {value!r}")
 
 
 def to_bool(value, rule=None):
-    """'1' / '1.0' -> True, '0' / '0.0' -> False, vacio -> None."""
+    """'1' / '1.0' -> True, '0' / '0.0' -> False, empty -> None."""
     value = clean(value)
     if value is None:
         return None
@@ -96,7 +96,7 @@ def to_bool(value, rule=None):
         return True
     if value in ("0", "0.0"):
         return False
-    raise ValueError(f"Valor booleano no valido: {value!r}")
+    raise ValueError(f"Invalid boolean value: {value!r}")
 
 
 def to_date(value):
@@ -107,8 +107,8 @@ def to_date(value):
 
 
 def parse_highlights(value):
-    """"['Vegan', "allure 2018 Readers' Choice"]" -> lista de Python.
-    ast.literal_eval entiende comillas simples y dobles (hallazgo A11)."""
+    """"['Vegan', "allure 2018 Readers' Choice"]" -> Python list.
+    ast.literal_eval understands single and double quotes (finding A11)."""
     value = clean(value)
     if value is None:
         return []
@@ -122,7 +122,7 @@ def read_csv(name):
 
 
 # ---------------------------------------------------------------------
-# PRODUCTOS: brand, category, product, highlight, product_highlight
+# PRODUCTS: brand, category, product, highlight, product_highlight
 # ---------------------------------------------------------------------
 def load_products(cur):
     brands = {}                 # brand_id -> brand_name
@@ -131,7 +131,7 @@ def load_products(cur):
     product_highlights = []     # (product_id, highlight_name)
 
     for row in read_csv("product_info.csv"):
-        log["product_info.csv: filas leidas"] += 1
+        log["product_info.csv: rows read"] += 1
 
         brand_id = to_int(row["brand_id"])
         brands[brand_id] = clean(row["brand_name"])
@@ -143,7 +143,7 @@ def load_products(cur):
 
         names = parse_highlights(row["highlights"])
         if names:
-            log["highlights: lista separada en filas (1NF)"] += 1
+            log["highlights: list split into rows (1NF)"] += 1
         for name in names:
             product_highlights.append((clean(row["product_id"]), name))
 
@@ -152,9 +152,9 @@ def load_products(cur):
             "product_name": clean(row["product_name"]),
             "brand_id": brand_id,
             "category": cat,
-            "loves_count": to_int(row["loves_count"], "enteros escritos como float ('11.0' -> 11)"),
+            "loves_count": to_int(row["loves_count"], "integers written as floats ('11.0' -> 11)"),
             "rating": to_decimal(row["rating"]),
-            "reviews_count": to_int(row["reviews"], "enteros escritos como float ('11.0' -> 11)"),
+            "reviews_count": to_int(row["reviews"], "integers written as floats ('11.0' -> 11)"),
             "size": clean(row["size"]),
             "variation_type": clean(row["variation_type"]),
             "variation_value": clean(row["variation_value"]),
@@ -163,12 +163,12 @@ def load_products(cur):
             "price_usd": to_decimal(row["price_usd"]),
             "value_price_usd": to_decimal(row["value_price_usd"]),
             "sale_price_usd": to_decimal(row["sale_price_usd"]),
-            "limited_edition": to_bool(row["limited_edition"], "flags 0/1 -> BOOLEAN (celdas)"),
-            "is_new": to_bool(row["new"], "flags 0/1 -> BOOLEAN (celdas)"),
-            "online_only": to_bool(row["online_only"], "flags 0/1 -> BOOLEAN (celdas)"),
-            "out_of_stock": to_bool(row["out_of_stock"], "flags 0/1 -> BOOLEAN (celdas)"),
-            "sephora_exclusive": to_bool(row["sephora_exclusive"], "flags 0/1 -> BOOLEAN (celdas)"),
-            "child_count": to_int(row["child_count"], "enteros escritos como float ('11.0' -> 11)"),
+            "limited_edition": to_bool(row["limited_edition"], "flags 0/1 -> BOOLEAN (cells)"),
+            "is_new": to_bool(row["new"], "flags 0/1 -> BOOLEAN (cells)"),
+            "online_only": to_bool(row["online_only"], "flags 0/1 -> BOOLEAN (cells)"),
+            "out_of_stock": to_bool(row["out_of_stock"], "flags 0/1 -> BOOLEAN (cells)"),
+            "sephora_exclusive": to_bool(row["sephora_exclusive"], "flags 0/1 -> BOOLEAN (cells)"),
+            "child_count": to_int(row["child_count"], "integers written as floats ('11.0' -> 11)"),
             "child_min_price": to_decimal(row["child_min_price"]),
             "child_max_price": to_decimal(row["child_max_price"]),
         })
@@ -177,15 +177,15 @@ def load_products(cur):
     execute_values(cur,
         "INSERT INTO brand (brand_id, brand_name) VALUES %s",
         sorted(brands.items()))
-    log["brand: filas insertadas"] = len(brands)
+    log["brand: rows inserted"] = len(brands)
 
-    # category: el id lo genera SERIAL; luego lo leemos para el mapa
+    # category: SERIAL creates the id; then we read it back to build the map
     execute_values(cur,
         "INSERT INTO category (primary_category, secondary_category, tertiary_category) VALUES %s",
         sorted(categories, key=lambda c: tuple(x or "" for x in c)))
     cur.execute("SELECT category_id, primary_category, secondary_category, tertiary_category FROM category")
     category_id = {(p, s, t): cid for cid, p, s, t in cur.fetchall()}
-    log["category: filas insertadas"] = len(categories)
+    log["category: rows inserted"] = len(categories)
 
     # product
     cols = ["product_id", "product_name", "brand_id", "category_id", "loves_count", "rating",
@@ -198,24 +198,24 @@ def load_products(cur):
         p["category_id"] = category_id[p["category"]]
         rows.append(tuple(p[c] for c in cols))
     execute_values(cur, f"INSERT INTO product ({', '.join(cols)}) VALUES %s", rows)
-    log["product: filas insertadas"] = len(rows)
+    log["product: rows inserted"] = len(rows)
 
     # highlight + product_highlight
     names = sorted({name for _, name in product_highlights})
     execute_values(cur, "INSERT INTO highlight (name) VALUES %s", [(n,) for n in names])
     cur.execute("SELECT highlight_id, name FROM highlight")
     highlight_id = {name: hid for hid, name in cur.fetchall()}
-    log["highlight: filas insertadas"] = len(names)
+    log["highlight: rows inserted"] = len(names)
 
     pairs = sorted({(pid, highlight_id[name]) for pid, name in product_highlights})
     if len(pairs) < len(product_highlights):
-        log["highlights repetidos dentro del mismo producto (eliminados)"] = len(product_highlights) - len(pairs)
+        log["highlights repeated in the same product (removed)"] = len(product_highlights) - len(pairs)
     execute_values(cur, "INSERT INTO product_highlight (product_id, highlight_id) VALUES %s", pairs)
-    log["product_highlight: filas insertadas"] = len(pairs)
+    log["product_highlight: rows inserted"] = len(pairs)
 
 
 # ---------------------------------------------------------------------
-# RESEÑAS: author, review  (por lotes, para no cargar 1 M filas en memoria)
+# REVIEWS: author, review  (in batches, so 1 M rows are not kept in memory)
 # ---------------------------------------------------------------------
 REVIEW_COLS = ["author_id", "product_id", "rating", "is_recommended", "helpfulness",
                "total_feedback_count", "total_pos_feedback_count", "total_neg_feedback_count",
@@ -224,7 +224,7 @@ REVIEW_COLS = ["author_id", "product_id", "rating", "is_recommended", "helpfulne
 
 
 def load_reviews(cur):
-    seen_reviews = set()        # para detectar duplicados exactos (hallazgo B6)
+    seen_reviews = set()        # to detect exact duplicates (finding B6)
     seen_authors = set()
     batch_reviews, batch_authors = [], []
 
@@ -241,13 +241,13 @@ def load_reviews(cur):
     for name in REVIEW_FILES:
         print(f"  {name} ...", flush=True)
         for row in read_csv(name):
-            log["reviews_*.csv: filas leidas"] += 1
+            log["reviews_*.csv: rows read"] += 1
 
-            # Regla: duplicados exactos (mismo autor, producto, fecha, texto y rating)
+            # Rule: exact duplicates (same author, product, date, text and rating)
             key = hash((row["author_id"], row["product_id"], row["submission_time"],
                         row["review_text"], row["rating"]))
             if key in seen_reviews:
-                log["reseñas duplicadas exactas (eliminadas)"] += 1
+                log["exact duplicate reviews (removed)"] += 1
                 continue
             seen_reviews.add(key)
 
@@ -256,9 +256,9 @@ def load_reviews(cur):
                 seen_authors.add(author_id)
                 batch_authors.append((author_id,))
 
-            # Reglas que no necesitan contar fila a fila:
-            # - columna sin nombre (indice de pandas) descartada
-            # - product_name, brand_name, price_usd descartadas (redundantes, 2NF)
+            # Rules that do not need a row-by-row count:
+            # - unnamed column (pandas index) dropped
+            # - product_name, brand_name, price_usd dropped (redundant, 2NF)
             batch_reviews.append((
                 author_id,
                 clean(row["product_id"]),
@@ -281,16 +281,16 @@ def load_reviews(cur):
                 flush()
     flush()
 
-    log["author: filas insertadas"] = len(seen_authors)
-    log["review: filas insertadas"] = len(seen_reviews)
-    log["columna sin nombre (indice) descartada: filas"] = log["reviews_*.csv: filas leidas"]
-    log["product_name/brand_name/price_usd redundantes descartadas: filas"] = log["reviews_*.csv: filas leidas"]
+    log["author: rows inserted"] = len(seen_authors)
+    log["review: rows inserted"] = len(seen_reviews)
+    log["unnamed column (index) dropped: rows"] = log["reviews_*.csv: rows read"]
+    log["redundant product_name/brand_name/price_usd dropped: rows"] = log["reviews_*.csv: rows read"]
 
 
 # ---------------------------------------------------------------------
 def write_log():
-    lines = ["# Cleaning log (generado por etl/load.py)", "",
-             "| Regla / paso | Filas afectadas |", "|---|---|"]
+    lines = ["# Cleaning log (written by etl/load.py)", "",
+             "| Rule / step | Rows affected |", "|---|---|"]
     for rule, n in log.items():
         lines.append(f"| {rule} | {n:,} |")
     LOG_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -299,40 +299,40 @@ def write_log():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo-rollback", action="store_true",
-                        help="inserta una fila invalida al final para demostrar el ROLLBACK")
+                        help="inserts an invalid row at the end to show the ROLLBACK")
     args = parser.parse_args()
 
-    password = os.environ.get("PGPASSWORD") or getpass.getpass("Password de PostgreSQL (postgres): ")
+    password = os.environ.get("PGPASSWORD") or getpass.getpass("PostgreSQL password (postgres): ")
     conn = psycopg2.connect(password=password, **DB)
-    conn.autocommit = False                     # todo en UNA transaccion
+    conn.autocommit = False                     # everything in ONE transaction
 
     try:
         with conn.cursor() as cur:
-            # Vaciar (dentro de la misma transaccion) para poder re-ejecutar
+            # Empty the tables (inside the same transaction) so the script can be re-run
             cur.execute("TRUNCATE review, author, product_highlight, highlight, "
                         "product, category, brand RESTART IDENTITY;")
 
-            print("Cargando productos ...")
+            print("Loading products ...")
             load_products(cur)
-            print("Cargando reseñas ...")
+            print("Loading reviews ...")
             load_reviews(cur)
 
             if args.demo_rollback:
-                print("\nDEMO: insertando una reseña con rating = 9 (viola el CHECK 1-5) ...")
+                print("\nDEMO: inserting a review with rating = 9 (breaks the CHECK 1-5) ...")
                 cur.execute("INSERT INTO review (author_id, product_id, rating, submission_time) "
                             "SELECT author_id, product_id, 9, submission_time FROM review LIMIT 1;")
 
         conn.commit()
-        print("\nCOMMIT: carga completa.")
+        print("\nCOMMIT: load complete.")
         write_log()
         for rule, n in log.items():
             print(f"  {rule:<60} {n:>10,}")
-        print(f"\nLog de limpieza guardado en {LOG_FILE.relative_to(ROOT)}")
+        print(f"\nCleaning log saved in {LOG_FILE.relative_to(ROOT)}")
 
     except Exception as e:
         conn.rollback()
         print(f"\nERROR: {e}")
-        print("ROLLBACK: no se ha cargado NINGUNA fila (la base de datos queda como estaba).")
+        print("ROLLBACK: NO rows were loaded (the database stays as it was).")
         sys.exit(1)
     finally:
         conn.close()

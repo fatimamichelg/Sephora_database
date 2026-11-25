@@ -107,7 +107,7 @@ st.markdown("""
   <div class="kicker">Beauty data · Project B</div>
   <h1>Skincare Explorer</h1>
   <p>8,494 products · 1.09 M customer reviews</p>
-  <p>By Fatima Michel &amp; Itsaso Berigistain</p>
+  <p>By Fatima Michel &amp; Itsaso Begiristain</p>
   <div class="line"></div><br>
 </div>
 """, unsafe_allow_html=True)

@@ -5,7 +5,7 @@ Relational database built from the Kaggle dataset
 (nadyinky, CC BY 4.0): 8,494 products and 1,094,411 reviews, loaded into
 PostgreSQL, queried with SQL and shown in a Streamlit app.
 
-**Team:** Fatima Michel · Itsaso Berigistain
+**Team:** Fatima Michel · Itsaso Begiristain
 **Course:** Information Technology – Project B
 
 ---
@@ -18,7 +18,7 @@ Sephora_database/
 ├── data/                     # raw CSV files (NOT committed, see .gitignore)
 ├── sql/
 │   ├── load_staging.sql      # 1. raw CSVs -> staging tables (all TEXT), for profiling
-│   ├── profiling.sql         # 2. data profile (queries A1–A12, B1–B15)
+│   ├── profiling.sql         # 2. data profile (queries A1–A11, B1–B15)
 │   ├── schema.sql            # 3. final schema: 7 tables and all constraints
 │   ├── verify_constraints.sql# 5. checks that the constraints exist after the load
 │   └── queries.sql           # 6. the 10 SQL queries of the report
@@ -28,7 +28,7 @@ Sephora_database/
 ├── app/
 │   ├── streamlit_app.py      # 7. visualization app
 │   └── queries.py            # the 10 queries used by the app, with parameters
-├── .streamlit/config.toml    # colours of the app
+├── .streamlit/config.toml    # colours of the app (read when the app is started from this folder)
 ├── EFFORT_LOG.md             # what each member did
 └── README.md
 ```
@@ -138,6 +138,12 @@ Replace `your_password` with the PostgreSQL password. The app opens at
 
 The app only reads the database (read-only session). Every chart comes from one
 of the 10 queries, and every filter is sent to PostgreSQL as a parameter.
+Start it from the project folder (as above) so Streamlit finds `.streamlit/config.toml`
+and applies the colours.
+
+pandas is only used to hand the rows returned by PostgreSQL to the charts
+(`pd.DataFrame(rows)`); it does no calculation. All grouping, averages and
+rankings are done in SQL.
 
 ---
 

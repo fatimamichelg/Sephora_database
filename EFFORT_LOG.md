@@ -1,12 +1,12 @@
 # Effort Log – Project B: Sephora Database
 
-**Team:** Fatima Michel · Itsaso Berigistain
+**Team:** Fatima Michel · Itsaso Begiristain
 **Course:** Information Technology
 **Dataset:** Sephora Products and Skincare Reviews (Kaggle, nadyinky, CC BY 4.0)
 
 ## Who did what
 
-| Area | Fatima Michel | Itsaso Berigistain |
+| Area | Fatima Michel | Itsaso Begiristain |
 |---|---|---|
 | Dataset selection | ✔ | ✔ |
 | Data profiling (`profiling.sql`) | ✔ | |
